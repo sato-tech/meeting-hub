@@ -101,8 +101,21 @@ class ModalRuntime(RuntimeAdapter):
             logger.info("modal runtime: step=%s not supported on modal, running local", step.name)
             return step.process(ctx)
 
+        # MEETING_HUB_FORCE_MODAL=true の環境では local fallback を許さず fail-loud
+        # （HF Spaces 等で torch/pyannote が未インストールなら fallback 自体が ImportError で
+        # 落ちるが、その場合の原因を分かりやすくするため明示的にエラーを上げる）
+        force_modal = (os.environ.get("MEETING_HUB_FORCE_MODAL") or "").lower() in (
+            "1", "true", "yes", "on",
+        )
+
         remote_fn = self._get_remote_fn(step.name)
         if remote_fn is None:
+            if force_modal:
+                raise RuntimeError(
+                    f"MEETING_HUB_FORCE_MODAL is set, but Modal function for step={step.name!r} "
+                    f"is not available. Run `modal deploy scripts/modal_deploy.py` first, "
+                    f"and ensure MEETING_HUB_MODAL_APP={MODAL_APP_NAME!r} matches the deployed app."
+                )
             ctx.add_warning(f"modal:unavailable:{step.name}")
             logger.warning("modal unavailable, falling back to local for step=%s", step.name)
             return step.process(ctx)
@@ -121,10 +134,18 @@ class ModalRuntime(RuntimeAdapter):
         except Exception as e:
             logger.exception("modal remote failed: %s", e)
             ctx.add_warning(f"modal:remote_error:{step.name}:{e}")
+            if force_modal:
+                raise RuntimeError(
+                    f"MEETING_HUB_FORCE_MODAL is set and Modal remote call for step={step.name!r} failed: {e}"
+                ) from e
             return step.process(ctx)
 
         if not isinstance(result, dict):
             logger.warning("unexpected modal result type: %r", type(result))
+            if force_modal:
+                raise RuntimeError(
+                    f"MEETING_HUB_FORCE_MODAL is set, but Modal returned unexpected type: {type(result)}"
+                )
             return step.process(ctx)
 
         if "segments" in result:

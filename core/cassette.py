@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,37 @@ from core.cassette_schema import CassetteConfig
 logger = logging.getLogger(__name__)
 
 _CASSETTE_ROOT = Path(__file__).resolve().parents[1] / "cassettes"
+
+# Modal を強制する Step 名（重い ML を Modal GPU に逃がす）
+_MODAL_FORCEABLE_STEPS = {"transcribe", "diarize"}
+
+
+def _force_modal_enabled() -> bool:
+    """env `MEETING_HUB_FORCE_MODAL` が truthy なら True。
+
+    HF Spaces / Streamlit Cloud のような軽量ホスティングで、重い ML を
+    Modal GPU に強制的に逃がす用途。
+    """
+    return (os.environ.get("MEETING_HUB_FORCE_MODAL") or "").lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _apply_force_modal(data: dict[str, Any]) -> None:
+    """`MEETING_HUB_FORCE_MODAL=true` 時に transcribe/diarize の runtime を modal に上書き。
+
+    ただし input.type=live_audio の場合はスキップする。
+    ライブ音声は外部送信禁止（Phase 0 プライバシー要件）であり、
+    cassette_schema.validate_mode_consistency でも live_audio + runtime=modal は
+    バリデーションエラーになるため、ここで先に弾いておく。
+    """
+    input_type = ((data.get("input") or {}).get("type"))
+    if input_type == "live_audio":
+        return
+    pipeline = data.get("pipeline") or []
+    for step in pipeline:
+        if step.get("step") in _MODAL_FORCEABLE_STEPS:
+            step["runtime"] = "modal"
 
 
 # ─── 旧ライブ専用カセット名 → 会議タイプカセット + live フラグへのマッピング ──
@@ -67,6 +99,11 @@ def load_cassette(
     # ライブ変換はユーザーの override より前に適用（override で上書き可能）
     if effective_live:
         apply_live_profile(data)
+
+    # MEETING_HUB_FORCE_MODAL=true なら transcribe/diarize を modal runtime に強制
+    # （HF Spaces 等のホスティング環境で重い ML を Modal GPU に逃がす用途）
+    if _force_modal_enabled():
+        _apply_force_modal(data)
 
     if overrides:
         for ov in overrides:
