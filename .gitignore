@@ -24,6 +24,11 @@ secrets/*
 output/
 checkpoints/
 
+# CLI dry-run / 動作確認時の残留ディレクトリ
+/d/
+/dst/
+/out/
+
 # 音声・動画ファイル（容量・プライバシー）
 *.mp4
 *.mov
