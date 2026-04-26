@@ -57,14 +57,12 @@ jobs:
             exit 1
           fi
           SPACE_OWNER="${HF_SPACE_OWNER:-$HF_USERNAME}"
-          HF_SPACE_URL="https://huggingface.co/spaces/${SPACE_OWNER}/${HF_SPACE_NAME}"
           HF_GIT_REMOTE="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${SPACE_OWNER}/${HF_SPACE_NAME}"
 
-          # 事前検証: Space が存在しない / owner が違う場合はここで明示的に失敗させる
-          status="$(curl -s -o /dev/null -w '%{http_code}' "$HF_SPACE_URL" || true)"
-          if [ "$status" != "200" ]; then
-            echo "::error::HF Space not found or not accessible: ${HF_SPACE_URL} (status=${status})"
-            echo "::error::Check HF_SPACE_OWNER/HF_SPACE_NAME and visibility settings."
+          # 事前検証: 認証付きでリモート参照可能か確認（private Space でも判定可能）
+          if ! git ls-remote "$HF_GIT_REMOTE" >/dev/null 2>&1; then
+            echo "::error::HF Space git remote not reachable: ${SPACE_OWNER}/${HF_SPACE_NAME}"
+            echo "::error::Check HF_SPACE_OWNER/HF_SPACE_NAME and HF_TOKEN(write permission)."
             exit 1
           fi
 

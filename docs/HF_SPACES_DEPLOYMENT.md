@@ -120,6 +120,7 @@ GitHub の `sato-tech/meeting-hub` → **Settings** → **Secrets and variables*
 | `HF_USERNAME` | あなたの HF ユーザー名（例: `sato-tech`） |
 | `HF_TOKEN` | §2.3 で発行した `hf_xxxxx` |
 | `HF_SPACE_NAME` | §2.2 で付けた Space 名（例: `meeting-hub`） |
+| `HF_SPACE_OWNER` | （任意）Space の owner。組織 Space の場合に設定（例: `my-org`） |
 
 ---
 
@@ -295,6 +296,15 @@ modal app list
 ### 同時実行で OOM
 
 CPU Basic は 16GB RAM。同時 2〜3 ジョブで Streamlit + ジョブメモリが圧迫されます。利用者が増えたら Pro Spaces ($9/月) で 32GB に上げるか、Spaces を 1 ジョブのみ受付に制限（実装は別途検討）。
+
+### Actions で `Repository not found` / `Process completed with exit code 128`
+
+`Push to Hugging Face Spaces` で `repository ... not found` が出る場合、次を確認:
+
+- `HF_SPACE_NAME` が実際の Space 名と一致しているか
+- 組織 Space の場合に `HF_SPACE_OWNER` を設定しているか（未設定時は `HF_USERNAME` を owner として扱う）
+- `HF_TOKEN` が write 権限か
+- Space が存在し、private の場合はトークンでアクセス可能か
 
 ---
 
