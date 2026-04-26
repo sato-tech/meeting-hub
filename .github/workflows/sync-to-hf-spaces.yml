@@ -1,6 +1,6 @@
 name: Sync to Hugging Face Spaces
 
-# main ブランチに push したとき、HF Spaces にミラーする。
+# main / feat/draft ブランチに push したとき、HF Spaces にミラーする。
 # README に HF Spaces 用 frontmatter を動的に注入してから push する
 # （GitHub 側の README はそのまま、HF Spaces 側のみフロントマター付きで配布）。
 #
@@ -12,8 +12,8 @@ name: Sync to Hugging Face Spaces
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:        # 手動実行も可能
+    branches: [main, feat/draft]
+  workflow_dispatch:        # 手動実行も可能（ブランチを選べる）
 
 jobs:
   sync:

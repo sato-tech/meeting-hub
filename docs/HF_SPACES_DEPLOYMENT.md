@@ -127,7 +127,7 @@ GitHub の `sato-tech/meeting-hub` → **Settings** → **Secrets and variables*
 
 ### 4.1 自動 trigger（main 更新時）
 
-`main` ブランチに何か push すれば自動的に `.github/workflows/sync-to-hf-spaces.yml` が走ります。
+`main` または `feat/draft` ブランチに push すれば自動的に `.github/workflows/sync-to-hf-spaces.yml` が走ります（ワークフロー定義の `on.push.branches` に準拠）。
 
 ### 4.2 手動 trigger（初回はこれが早い）
 
