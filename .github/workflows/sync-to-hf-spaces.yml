@@ -52,25 +52,72 @@ jobs:
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
           HF_SPACE_OWNER: ${{ secrets.HF_SPACE_OWNER }}
         run: |
-          if [ -z "$HF_USERNAME" ] || [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_NAME" ]; then
+          set -uo pipefail
+
+          if [ -z "${HF_USERNAME:-}" ] || [ -z "${HF_TOKEN:-}" ] || [ -z "${HF_SPACE_NAME:-}" ]; then
             echo "::error::Required secrets not set: HF_USERNAME / HF_TOKEN / HF_SPACE_NAME"
             exit 1
           fi
           SPACE_OWNER="${HF_SPACE_OWNER:-$HF_USERNAME}"
-          HF_GIT_REMOTE="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${SPACE_OWNER}/${HF_SPACE_NAME}"
+          SPACE_PATH="spaces/${SPACE_OWNER}/${HF_SPACE_NAME}"
+          # token 部分はマスクされるよう ::add-mask:: 経由で隠す
+          echo "::add-mask::${HF_TOKEN}"
+          # 認証は git basic auth ではなく oauth2 形式の方が HF 側で安定する
+          HF_GIT_REMOTE="https://oauth2:${HF_TOKEN}@huggingface.co/${SPACE_PATH}"
 
-          # 事前検証: 認証付きでリモート参照可能か確認（private Space でも判定可能）
-          if ! git ls-remote "$HF_GIT_REMOTE" >/dev/null 2>&1; then
-            echo "::error::HF Space git remote not reachable: ${SPACE_OWNER}/${HF_SPACE_NAME}"
-            echo "::error::Check HF_SPACE_OWNER/HF_SPACE_NAME and HF_TOKEN(write permission)."
+          echo "==> target: https://huggingface.co/${SPACE_PATH}"
+
+          # 1) トークン自体の有効性と write 権限を HF API で事前検証
+          WHOAMI_HTTP=$(curl -sS -o whoami.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${HF_TOKEN}" \
+            https://huggingface.co/api/whoami-v2 || echo 000)
+          if [ "${WHOAMI_HTTP}" != "200" ]; then
+            echo "::error::HF whoami-v2 failed (HTTP ${WHOAMI_HTTP}). Token is invalid or expired."
+            cat whoami.json || true
+            exit 1
+          fi
+          # auth.accessToken.role が 'write' / 'fineGrained'(write 権限付き) かチェック
+          TOKEN_ROLE=$(python3 -c 'import json,sys;d=json.load(open("whoami.json"));a=d.get("auth",{}).get("accessToken",{});print(a.get("role","")) ' 2>/dev/null || echo "")
+          TOKEN_NAME=$(python3 -c 'import json;d=json.load(open("whoami.json"));print(d.get("name",""))' 2>/dev/null || echo "")
+          echo "==> HF token belongs to: ${TOKEN_NAME} (role=${TOKEN_ROLE})"
+          if [ "${TOKEN_ROLE}" != "write" ] && [ "${TOKEN_ROLE}" != "fineGrained" ]; then
+            echo "::error::HF_TOKEN role is '${TOKEN_ROLE}', need 'write'."
+            echo "::error::Reissue at https://huggingface.co/settings/tokens with type=write."
             exit 1
           fi
 
+          # 2) Space の存在確認（404 なら作成手順を案内）
+          SPACE_HTTP=$(curl -sS -o space.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${HF_TOKEN}" \
+            "https://huggingface.co/api/spaces/${SPACE_OWNER}/${HF_SPACE_NAME}" || echo 000)
+          if [ "${SPACE_HTTP}" = "404" ]; then
+            echo "::error::HF Space does not exist: ${SPACE_OWNER}/${HF_SPACE_NAME}"
+            echo "::error::Create it first at https://huggingface.co/new-space (SDK=streamlit)."
+            exit 1
+          fi
+          if [ "${SPACE_HTTP}" != "200" ]; then
+            echo "::error::HF Space lookup failed (HTTP ${SPACE_HTTP})."
+            cat space.json || true
+            exit 1
+          fi
+
+          # 3) git push 実行（verbose で実エラーを表示）
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 改行や空白混入の token を弾くため git の credential helper は無効化
+          git config --global credential.helper ""
+          # http.extraheader 経由でも認証可能だが、URL embed の方が単純なのでそのまま
           git add README.md
-          git commit -m "ci: inject HF Spaces frontmatter" || echo "no changes"
+          git commit -m "ci: inject HF Spaces frontmatter" || echo "(no README changes to commit)"
           git remote remove hf 2>/dev/null || true
-          git remote add hf "$HF_GIT_REMOTE"
+          git remote add hf "${HF_GIT_REMOTE}"
+
           # HF Spaces に強制 push（main ブランチを上書き）
-          git push --force hf HEAD:main
+          # GIT_TRACE=1 などは token を含む URL を出すため使用しない（--verbose のみ）
+          if ! git push --force --verbose hf "HEAD:main" 2>&1; then
+            echo "::error::git push to HF Spaces failed. See output above."
+            echo "::error::Common causes: (a) token revoked between whoami and push,"
+            echo "::error::                (b) protected branch on Space, (c) LFS object missing."
+            exit 1
+          fi
+          echo "==> push succeeded: https://huggingface.co/${SPACE_PATH}"
