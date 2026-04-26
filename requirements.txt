@@ -1,4 +1,11 @@
 # meeting-hub Phase 1 依存
+#
+# インストール後に pip が「ERROR: ... dependency conflicts」と出しても、
+# 直前に Successfully installed があれば処理は完了していることが多い。
+# その警告は「同じ環境に残っている別プロジェクト用パッケージ」との不整合
+# （例: torchvision が古い torch 向け、httpstan が numpy<2 を要求、fbprophet と cmdstanpy）
+# が原因。本リポジトリは torchvision を要求しない。
+# 解消策: Python 3.10+ で専用 venv を切り、ここだけを入れるのが確実。
 
 # ─── 音声取り込み／前処理 ───
 faster-whisper>=1.1.0
@@ -19,6 +26,8 @@ torchaudio>=2.0.0
 
 # ─── スキーマ／設定／テンプレ ───
 pydantic>=2.5
+# Python 3.9 では Pydantic が str | None 等を評価するのに必要（3.10+ では任意）
+eval_type_backport>=0.2.0
 PyYAML>=6.0
 jinja2>=3.1
 python-dotenv>=1.0.0
@@ -36,6 +45,11 @@ notion-client>=2.2
 slack-sdk>=3.27
 
 # ─── Web UI / Runtime（Phase 3） ───
+# protobuf 4.21+ は古い生成コードと非互換で Streamlit 起動時に
+# 「Descriptors cannot be created directly」となるため上限を固定する
+protobuf>=3.20,<4.21
+# Streamlit が起動時に Plotly テーマを読み込む。plotly<5 だと template.data.Icicle がなく AttributeError になる
+plotly>=5.0
 streamlit>=1.35
 modal>=0.64
 

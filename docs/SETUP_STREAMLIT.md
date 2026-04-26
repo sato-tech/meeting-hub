@@ -68,6 +68,8 @@ streamlit run web/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
 
 | 症状 | 対処 |
 |---|---|
+| `Port 8501 is already in use` | 別プロセス（別 Streamlit や Docker が 8501 を公開している等）が占有中。`lsof -i :8501` で確認。いずれか: (1) 占有側を停止する、(2) 別ポートで起動する例: `streamlit run web/streamlit_app.py --server.port 8502` |
+| Python 3.9 で Pydantic が「Unable to evaluate type annotation」（`str` と `None` の和型）を解釈できない | `pip install 'eval_type_backport>=0.2.0'`（`requirements.txt` に含む）。**推奨は Python 3.10+**（`pyproject.toml` の `requires-python` と一致）。 |
 | アップロードサイズ上限に引っかかる | `.streamlit/config.toml` の `maxUploadSize` を増やす（既定 500MB） |
 | 進捗が更新されない | 1 秒 poll している。ブラウザの rerun 抑止が効いていないか |
 | Job 履歴が見えない | `MEETING_HUB_HISTORY_DB` のパスを確認、DB が初期化済か |

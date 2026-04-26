@@ -14,7 +14,7 @@ cassettes/*.yaml をこのスキーマで検証する。
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -192,13 +192,13 @@ class GoogleDriveDestination(BaseModel):
     folder_path: str = Field(..., description="例: '/meetings/sales/minutes/'")
 
 
-Destination = (
-    LocalDestination
-    | NotionDestination
-    | SlackDestination
-    | EmailDestination
-    | GoogleDriveDestination
-)
+Destination = Union[
+    LocalDestination,
+    NotionDestination,
+    SlackDestination,
+    EmailDestination,
+    GoogleDriveDestination,
+]
 
 
 OutputFormat = Literal["md", "txt", "json", "srt"]

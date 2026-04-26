@@ -18,7 +18,10 @@ import sqlite3
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+# Python 3.11 の datetime.UTC と同等（3.9 でも利用可）
+UTC = timezone.utc
 from pathlib import Path
 from typing import Any, Iterator
 
