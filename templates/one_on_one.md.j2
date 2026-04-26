@@ -1,0 +1,48 @@
+{#
+  ═══════════════════════════════════════════════════════════════
+  one_on_one.md.j2 — 1on1メモテンプレート
+  ═══════════════════════════════════════════════════════════════
+  利用する context 変数:
+    - subject, manager, date
+    - topics (list)
+    - work_status, wellbeing, career
+    - agreements (list)
+    - followups (list)
+    - next_date
+    - transcript
+  ═══════════════════════════════════════════════════════════════
+  ⚠️ このテンプレは local 保存のみを想定。外部共有しないこと。
+#}
+# 1on1メモ — {{ subject }} × {{ manager }} / {{ date }}
+
+## 話題
+{% for t in topics %}
+- {{ t }}
+{% endfor %}
+
+## 共有された状況
+
+### 業務面
+{{ work_status }}
+
+### 体調・モチベーション
+{{ wellbeing }}
+
+### キャリア
+{{ career }}
+
+## 合意事項
+{% for a in agreements %}
+- {{ a }}
+{% endfor %}
+
+## フォローアップ（次回までに確認すること）
+{% for f in followups %}
+- {{ f }}
+{% endfor %}
+
+## 次回日程
+{{ next_date }}
+
+## 全文（話者分離付き）
+{{ transcript }}

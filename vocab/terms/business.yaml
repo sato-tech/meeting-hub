@@ -1,0 +1,33 @@
+# ビジネス用語辞書（§12-6 RESOLVED、transcription-pipeline/config.py TERM_DICT 由来）
+#
+# 形式: 正規表現 → 正しい表記。後勝ちスタック（cassette.terms.stack）で上書き可能。
+
+name: business
+version: 1
+
+patterns:
+  # ─── 英語略語の読み誤り ───
+  - match: "サース|サーズ|サアス"
+    replace: "SaaS"
+  - match: "ピーオーシー|ポック"
+    replace: "PoC"
+  - match: "エムアールアール"
+    replace: "MRR"
+  - match: "エーアールアール"
+    replace: "ARR"
+  - match: "ケーピーアイ"
+    replace: "KPI"
+  - match: "オーケーアール"
+    replace: "OKR"
+  - match: "アールオーアイ"
+    replace: "ROI"
+
+  # ─── ビジネス用語の揺れ ───
+  - match: "チャーン率|チャン率|チャーン$"
+    replace: "チャーンレート"
+  - match: "オンボ$|オンボー$"
+    replace: "オンボーディング"
+  - match: "スケール$"
+    replace: "スケールアウト"
+  - match: "コンプラ(?!イ)"
+    replace: "コンプライアンス"

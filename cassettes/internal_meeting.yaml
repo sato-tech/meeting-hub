@@ -1,0 +1,118 @@
+# ═══════════════════════════════════════════════════════════════
+# internal_meeting カセット — 社内MTG・定例会
+# ═══════════════════════════════════════════════════════════════
+# 特徴:
+#   - 話者分離あり（2〜5名想定）
+#   - 決定事項 / ToDo / 論点の抽出を重視
+#   - Notion DB + Slack に配信（メールは社内なので不要）
+# ═══════════════════════════════════════════════════════════════
+
+name: internal_meeting
+description: 社内MTG・定例会議向け。決定事項・ToDo・論点を抽出。
+mode: cloud_batch
+
+input:
+  type: file
+  storage: google_drive
+  upload_path: /meetings/internal/raw/
+  supported_formats: [mp4, m4a, wav, mp3]
+
+pipeline:
+  - step: preprocess
+    enabled: true
+    runtime: local
+    params:
+      noise_reduce_strength: 0.7
+      target_sr: 16000
+
+  - step: transcribe
+    provider: faster_whisper_batch
+    enabled: true
+    runtime: local
+    params:
+      model: large-v3
+      language: ja
+      beam_size: 5
+      vad_filter: true
+      condition_on_previous_text: false
+      # 短発話対応（P1）：相槌・1 文字応答を取りこぼさない
+      vad_min_silence_ms: 100
+      vad_speech_pad_ms: 100
+      min_text_length: 1
+
+  - step: diarize
+    provider: pyannote
+    enabled: true
+    runtime: local
+    params:
+      num_speakers: null         # 自動推定
+      min_speakers: 2
+      max_speakers: 5
+      segmentation_threshold: 0.4
+      clustering_threshold: 0.65
+
+  - step: term_correct
+    enabled: true
+    runtime: local
+    params: {}
+
+  - step: llm_cleanup
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      preserve_original: true
+      remove_fillers: true
+
+  - step: minutes_extract
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      template: templates/internal_meeting.md.j2
+      prompt: prompts/minutes_extract_internal_meeting.md
+
+  - step: format
+    enabled: true
+    runtime: local
+    params: {}
+
+llm:
+  provider: claude
+  model: claude-haiku-4-5
+  batch_mode: true
+  cache_strategy: system_prompt
+  max_tokens: 8192
+  send_raw: false
+
+terms:
+  stack:
+    - business
+    - it
+    # - company_acme
+
+output:
+  formats: [md, json]
+  template: templates/internal_meeting.md.j2
+  destinations:
+    - type: local
+      path: ./output/internal/
+
+    - type: google_drive
+      folder_path: /meetings/internal/minutes/
+
+    - type: notion
+      database_id: ${NOTION_DB_INTERNAL}
+      properties:
+        Title: "{{ topic }}"
+        Date: "{{ date }}"
+        MeetingType: "{{ type }}"
+        Participants: "{{ speakers }}"
+        Summary: "{{ summary }}"
+        Decisions: "{{ decisions }}"
+        ToDos: "{{ todos }}"
+        OpenIssues: "{{ open_issues }}"
+
+    - type: slack
+      channel: "#internal-minutes"
+      post_format: summary_only

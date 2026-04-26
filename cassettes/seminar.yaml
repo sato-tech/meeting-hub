@@ -1,0 +1,117 @@
+# ═══════════════════════════════════════════════════════════════
+# seminar カセット — セミナー・講演録画
+# ═══════════════════════════════════════════════════════════════
+# 特徴:
+#   - 話者分離は基本不要（登壇者1人中心）、Q&Aで話者変化あれば分離
+#   - Claude によるフィラー除去 + 句読点挿入 + 章立て抽出
+#   - タイムスタンプ付き Markdown を主出力とする
+#   - Notion DB に配信（外部共有想定）
+# ═══════════════════════════════════════════════════════════════
+
+name: seminar
+description: セミナー・講演録画向け。フィラー除去＋章立て抽出で読みやすい議事録に整形。
+mode: cloud_batch
+
+input:
+  type: file
+  storage: google_drive
+  upload_path: /meetings/seminars/raw/
+  supported_formats: [mp4, m4a, wav, mp3]
+
+pipeline:
+  - step: preprocess
+    enabled: true
+    runtime: local
+    params:
+      noise_reduce_strength: 0.6
+      target_sr: 16000
+      loudnorm: "I=-16:TP=-1.5:LRA=11"
+
+  - step: transcribe
+    provider: faster_whisper_batch
+    enabled: true
+    runtime: local
+    params:
+      model: large-v3-turbo        # セミナーは速度重視
+      language: ja
+      beam_size: 5
+      vad_filter: true
+      condition_on_previous_text: false
+      # 短発話対応（P1）：質疑応答の短い反応も拾う
+      vad_min_silence_ms: 100
+      vad_speech_pad_ms: 100
+      min_text_length: 1
+
+  - step: diarize
+    provider: pyannote
+    enabled: false                 # 基本オフ。Q&A多めのセミナーは有効化
+    runtime: local
+    params:
+      num_speakers: null
+      min_speakers: 1
+      max_speakers: 3
+
+  - step: term_correct
+    enabled: true
+    runtime: local
+    params: {}
+
+  - step: llm_cleanup
+    provider: claude
+    enabled: true                  # セミナーはフィラー除去が重要
+    runtime: local
+    params:
+      preserve_original: true
+      remove_fillers: true
+      insert_punctuation: true
+      system_prompt_path: prompts/cleanup_seminar.md
+
+  - step: minutes_extract
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      template: templates/seminar.md.j2
+      prompt: prompts/minutes_extract_seminar.md
+      extract_chapters: true       # 章立てを自動抽出
+
+  - step: format
+    enabled: true
+    runtime: local
+    params:
+      include_timestamps: true
+
+llm:
+  provider: claude
+  model: claude-haiku-4-5
+  batch_mode: true
+  cache_strategy: system_prompt
+  max_tokens: 8192
+  send_raw: false
+
+terms:
+  stack:
+    - business
+    - it
+    # - seminar_specific           # セミナー固有用語（登壇者名など）
+
+output:
+  formats: [md, txt, srt]
+  template: templates/seminar.md.j2
+  destinations:
+    - type: local
+      path: ./output/seminars/
+
+    - type: google_drive
+      folder_path: /meetings/seminars/minutes/
+
+    - type: notion
+      database_id: ${NOTION_DB_SEMINAR}
+      properties:
+        Title: "{{ title }}"
+        Date: "{{ date }}"
+        Speakers: "{{ speakers }}"
+        Duration: "{{ duration }}"
+        Summary: "{{ summary_3lines }}"
+        Chapters: "{{ chapters }}"
+        FullTextURL: "{{ full_text_url }}"

@@ -1,0 +1,72 @@
+{#
+  ═══════════════════════════════════════════════════════════════
+  sales_meeting.md.j2 — 商談議事録テンプレート
+  ═══════════════════════════════════════════════════════════════
+  利用する context 変数:
+    - company, date, duration, stage
+    - internal_participants, external_participants
+    - summary_3lines
+    - customer_needs, budget, decision_process, competitors
+    - our_proposal
+    - positive_reactions, concerns
+    - next_actions (list of {owner, action, deadline})
+    - quoted_statements (list of {text, speaker})
+    - transcript
+  ═══════════════════════════════════════════════════════════════
+#}
+# 商談議事録 — {{ company }} / {{ date }}
+
+## 基本情報
+- **参加者（自社）**: {{ internal_participants | join(", ") }}
+- **参加者（顧客）**: {{ external_participants | join(", ") }}
+- **商談フェーズ**: {{ stage }}
+- **所要時間**: {{ duration }}
+
+## エグゼクティブサマリ（3行）
+{{ summary_3lines }}
+
+## ヒアリング結果
+
+### 顧客の課題・ニーズ
+{% for item in customer_needs %}
+- {{ item }}
+{% endfor %}
+
+### 予算・タイムライン
+- **予算**: {{ budget }}
+- **導入希望時期**: {{ timeline }}
+- **決裁フロー**: {{ decision_process }}
+
+### 競合・比較検討先
+{% for competitor in competitors %}
+- {{ competitor }}
+{% endfor %}
+
+## 提案内容
+{{ our_proposal }}
+
+## 顧客の反応・懸念
+### ポジティブな反応
+{% for item in positive_reactions %}
+- {{ item }}
+{% endfor %}
+
+### 懸念点
+{% for item in concerns %}
+- {{ item }}
+{% endfor %}
+
+## 次のアクション
+| 担当 | アクション | 期限 |
+|---|---|---|
+{% for a in next_actions -%}
+| {{ a.owner }} | {{ a.action }} | {{ a.deadline }} |
+{% endfor %}
+
+## 発言抜粋
+{% for q in quoted_statements %}
+> 「{{ q.text }}」 — {{ q.speaker }}
+{% endfor %}
+
+## 全文（話者分離付き）
+{{ transcript }}

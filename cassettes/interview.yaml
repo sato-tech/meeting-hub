@@ -1,0 +1,120 @@
+# ═══════════════════════════════════════════════════════════════
+# interview カセット — 採用面談
+# ═══════════════════════════════════════════════════════════════
+# 特徴:
+#   - 候補者個人情報を含むため mode=local_llm（外部音声APIとModal禁止）
+#   - 話者分離あり（面接官 + 候補者、複数面接官の場合も対応）
+#   - Q&Aペア抽出 + 評価観点マトリクス生成
+#   - Notion の採用DBにのみ配信（Slack/メールでの不用意な拡散を防ぐ）
+# ═══════════════════════════════════════════════════════════════
+
+name: interview
+description: 採用面談向け。Q&Aペア抽出と評価観点マトリクスを生成。
+mode: local_llm                  # 候補者データは外部GPU/外部音声APIに出さない
+
+input:
+  type: file
+  storage: local                  # プライバシー重視、Drive には上げない
+  supported_formats: [mp4, m4a, wav, mp3]
+
+pipeline:
+  - step: preprocess
+    enabled: true
+    runtime: local
+    params:
+      noise_reduce_strength: 0.8
+      target_sr: 16000
+
+  - step: transcribe
+    provider: faster_whisper_batch
+    enabled: true
+    runtime: local
+    params:
+      model: large-v3
+      language: ja
+      beam_size: 5
+      vad_filter: true
+      condition_on_previous_text: false
+      # 短発話対応（P1）：候補者の短い応答も拾う
+      vad_min_silence_ms: 100
+      vad_speech_pad_ms: 100
+      min_text_length: 1
+
+  - step: diarize
+    provider: pyannote
+    enabled: true
+    runtime: local
+    params:
+      num_speakers: null
+      min_speakers: 2
+      max_speakers: 4
+      speaker_names:
+        SPEAKER_00: 面接官A
+        SPEAKER_01: 候補者
+        SPEAKER_02: 面接官B
+
+  - step: term_correct
+    enabled: true
+    runtime: local
+    params: {}
+
+  - step: llm_cleanup
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      preserve_original: true
+      remove_fillers: true
+
+  - step: minutes_extract
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      template: templates/interview.md.j2
+      prompt: prompts/minutes_extract_interview.md
+      extract_qa_pairs: true
+      extract_evaluation: true
+
+  - step: format
+    enabled: true
+    runtime: local
+    params: {}
+
+llm:
+  provider: claude
+  model: claude-haiku-4-5
+  batch_mode: false               # 面接直後にレビューしたいため即時処理
+  cache_strategy: system_prompt
+  max_tokens: 8192
+  send_raw: false
+
+terms:
+  stack:
+    - business
+    - it
+    # - interview_domain          # 採用特有用語
+
+output:
+  formats: [md, json]
+  template: templates/interview.md.j2
+  destinations:
+    - type: local
+      path: ./output/interviews/
+
+    - type: notion
+      database_id: ${NOTION_DB_RECRUITING}
+      properties:
+        Candidate: "{{ candidate }}"
+        Position: "{{ position }}"
+        Date: "{{ date }}"
+        Interviewers: "{{ interviewers }}"
+        TechnicalScore: "{{ scores.technical }}"
+        CultureFitScore: "{{ scores.culture_fit }}"
+        CommunicationScore: "{{ scores.communication }}"
+        ProblemSolvingScore: "{{ scores.problem_solving }}"
+        GrowthMotivationScore: "{{ scores.growth_motivation }}"
+        Recommendation: "{{ recommendation }}"
+        Summary: "{{ summary }}"
+    # ⚠️ Slack / メール連携は意図的に含めない
+    # 候補者の情報を広く拡散するリスクを避ける

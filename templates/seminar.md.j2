@@ -1,0 +1,42 @@
+{#
+  ═══════════════════════════════════════════════════════════════
+  seminar.md.j2 — セミナー議事録テンプレート
+  ═══════════════════════════════════════════════════════════════
+  利用する context 変数:
+    - title, date, duration
+    - speakers (list)
+    - summary_3lines
+    - chapters (list of {number, title, timestamp, summary})
+    - key_points (list)
+    - qa (list of {question, answer})
+    - transcript_cleaned
+  ═══════════════════════════════════════════════════════════════
+#}
+# セミナー議事録 — {{ title }} / {{ date }}
+
+## 基本情報
+- **登壇者**: {{ speakers | join(", ") }}
+- **所要時間**: {{ duration }}
+
+## 概要（3行）
+{{ summary_3lines }}
+
+## 章立て
+{% for ch in chapters %}
+### {{ ch.number }}. {{ ch.title }} [{{ ch.timestamp }}]
+{{ ch.summary }}
+{% endfor %}
+
+## キーポイント
+{% for p in key_points %}
+- {{ p }}
+{% endfor %}
+
+## Q&A
+{% for item in qa %}
+### Q{{ loop.index }}: {{ item.question }}
+**A**: {{ item.answer }}
+{% endfor %}
+
+## 全文（タイムスタンプ付き・整形済み）
+{{ transcript_cleaned }}

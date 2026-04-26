@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(ffmpeg *)",
+      "Bash(pytest *)",
+      "Bash(mkdir -p *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(sudo rm *)",
+      "Bash(curl * | bash *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 .claude/hooks/pre-tool-use.py"}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "python3 .claude/hooks/post-tool-use.py"}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python3 .claude/hooks/stop.py"}
+        ]
+      }
+    ]
+  },
+  "env": {
+    "TOKENIZERS_PARALLELISM": "false"
+  }
+}

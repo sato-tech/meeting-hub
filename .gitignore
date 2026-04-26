@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# 仮想環境
+venv/
+.venv/
+env/
+
+# 環境変数・秘密鍵
+.env
+.env.local
+secrets/*
+!secrets/.gitkeep
+
+# 出力ディレクトリ
+output/
+checkpoints/
+
+# 音声・動画ファイル（容量・プライバシー）
+*.mp4
+*.mov
+*.m4a
+*.mp3
+*.wav
+*.ogg
+*.flac
+!tests/fixtures/audio/*.wav
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ゴールデンサンプル（外部管理）
+golden_samples/**/source.*
+golden_samples/**/*_clean.wav
+
+# 内部実装記録（個人パス・社内 URL 等を含むためローカル保管）
+REPORT_PROMPT_A.md
+REPORT_PROMPT_B.md
+REPORT_PROMPT_C.md
+REPORT_PHASE2_PLAN.md
+REPORT_PHASE3_PLAN.md
+REPORT_PHASE4_PLAN.md
+REPORT_PHASE5_PLAN.md
+docs/EXISTING_REPO_README_SNIPPET.md
+claude_code_prompt_A.md
+claude_code_prompt_B.md
+claude_code_prompt_C.md
+USAGE_GUIDE.md
+
+# Streamlit secrets（万が一作成された場合）
+.streamlit/secrets.toml
+
+# ジョブ履歴 DB（ローカル運用データ）
+*.db
+*.db-shm
+*.db-wal
+.meeting-hub/
+
+# Modal 認証（万が一リポ内に置かれた場合）
+.modal/
+
+# クリエイター向けの作業メモ（任意）
+SCRATCH.md
+TODO.local.md

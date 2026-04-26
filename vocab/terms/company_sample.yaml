@@ -1,0 +1,27 @@
+# 会社固有用語のサンプル（運用時はこのファイルをコピーして社名入りに作り変える、
+# 例: vocab/terms/company_acme.yaml）
+#
+# カセット YAML で `terms.stack: [business, it, company_acme]` と指定して後勝ち適用。
+# このファイル自体は架空例なので、本番運用ではコピーした上で実会社の用語に書き換える。
+
+name: company_sample
+version: 1
+
+patterns:
+  # ─── 架空企業名の表記揺れ修正例 ───
+  - match: "アクメ"
+    replace: "Acme"
+  - match: "グロ-?ベックス|グロベックス"
+    replace: "Globex"
+
+  # ─── 架空のプロダクト・サービス名の例 ───
+  - match: "オービット"
+    replace: "Orbit"
+  - match: "クォンタム"
+    replace: "Quantum"
+
+  # ─── 役職や部署名の例（よくある誤変換） ───
+  - match: "マ-?ケ部|マーケ部"
+    replace: "マーケティング部"
+  - match: "技開"
+    replace: "技術開発"

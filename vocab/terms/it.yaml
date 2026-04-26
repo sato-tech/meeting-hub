@@ -1,0 +1,21 @@
+# IT 用語辞書（§12-6 RESOLVED、transcription-pipeline/config.py TERM_DICT 由来）
+
+name: it
+version: 1
+
+patterns:
+  # ─── 英語略語 ───
+  - match: "エーピーアイ"
+    replace: "API"
+
+  # ─── プロダクト名 ───
+  - match: "ノートブックエレム"
+    replace: "NotebookLM"
+  - match: "ノーション"
+    replace: "Notion"
+  - match: "マークダウン"
+    replace: "Markdown"
+  - match: "グループライン"
+    replace: "LINEグループ"
+  - match: "パワポ|パワーポイント"
+    replace: "PowerPoint"

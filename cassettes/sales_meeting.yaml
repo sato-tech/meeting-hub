@@ -1,0 +1,127 @@
+# ═══════════════════════════════════════════════════════════════
+# sales_meeting カセット — 商談・アポイント用
+# ═══════════════════════════════════════════════════════════════
+# 特徴:
+#   - 話者分離あり（顧客 / 自社の2名想定）
+#   - 用語補正あり（SaaS / MRR / ARR / PoC 等のビジネス用語）
+#   - Claude Haiku 4.5 で議事録抽出（商談特有のフォーマット）
+#   - Notion DB + Slack + メールに自動配信
+# ═══════════════════════════════════════════════════════════════
+
+name: sales_meeting
+description: 商談・アポイント向け。話者分離＋用語補正＋Claudeによる議事録抽出。
+mode: cloud_batch          # 録画ファイルのバッチ処理、Modal GPU 利用可、Claude API 利用可
+
+input:
+  type: file
+  storage: google_drive
+  upload_path: /meetings/sales/raw/
+  supported_formats: [mp4, m4a, wav, mp3]
+
+pipeline:
+  - step: preprocess
+    enabled: true
+    runtime: local
+    params:
+      noise_reduce_strength: 0.8
+      target_sr: 16000
+
+  - step: transcribe
+    provider: faster_whisper_batch
+    enabled: true
+    runtime: local            # Phase 1 は local、Phase 3 で modal 選択可に
+    params:
+      model: large-v3
+      language: ja
+      beam_size: 5
+      vad_filter: true
+      condition_on_previous_text: false
+      # 短発話対応（P1）：相槌・1 文字応答を取りこぼさない
+      vad_min_silence_ms: 100
+      vad_speech_pad_ms: 100
+      min_text_length: 1
+
+  - step: diarize
+    provider: pyannote
+    enabled: true
+    runtime: local
+    params:
+      num_speakers: 2
+      speaker_names:
+        SPEAKER_00: 自社
+        SPEAKER_01: 顧客
+      segmentation_threshold: 0.4
+      clustering_threshold: 0.65
+
+  - step: term_correct
+    enabled: true
+    runtime: local
+    params: {}
+
+  - step: llm_cleanup
+    provider: claude
+    enabled: true
+    runtime: local            # Claude API 呼び出しはローカルから行う
+    params:
+      preserve_original: true
+      remove_fillers: true
+
+  - step: minutes_extract
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      template: templates/sales_meeting.md.j2
+      prompt: prompts/minutes_extract_sales_meeting.md
+
+  - step: format
+    enabled: true
+    runtime: local
+    params: {}
+
+llm:
+  provider: claude
+  model: claude-haiku-4-5
+  batch_mode: true            # バッチAPIで50%割引
+  cache_strategy: system_prompt
+  max_tokens: 8192
+  send_raw: false
+
+terms:
+  stack:
+    - business                # SaaS / MRR / ARR / KPI / OKR / PoC / ROI
+    - it                      # Notion / GitHub / API / Markdown
+    # - company_acme         # 会社固有用語があれば追加
+
+output:
+  formats: [md, json, srt]
+  template: templates/sales_meeting.md.j2
+  destinations:
+    - type: local
+      path: ./output/sales/
+
+    - type: google_drive
+      folder_path: /meetings/sales/minutes/
+
+    - type: notion
+      database_id: ${NOTION_DB_SALES}
+      properties:
+        Title: "{{ meeting_title }}"
+        Date: "{{ date }}"
+        Company: "{{ company }}"
+        Stage: "{{ stage }}"
+        Participants: "{{ speakers }}"
+        Summary: "{{ summary_3lines }}"
+        NextActions: "{{ next_actions }}"
+        AudioURL: "{{ audio_url }}"
+
+    - type: slack
+      channel: "#sales-minutes"
+      post_format: summary_only
+
+    - type: email
+      to:
+        - sales-team@example.com
+      cc:
+        - manager@example.com
+      subject: "【商談議事録】{{ company }} - {{ date }}"

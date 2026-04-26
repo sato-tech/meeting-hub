@@ -1,0 +1,57 @@
+{#
+  ═══════════════════════════════════════════════════════════════
+  internal_meeting.md.j2 — 社内MTG議事録テンプレート
+  ═══════════════════════════════════════════════════════════════
+  利用する context 変数:
+    - topic, date, type, duration
+    - speakers (list)
+    - summary
+    - agenda (list of {title, discussion, conclusion})
+    - decisions (list)
+    - open_issues (list)
+    - todos (list of {owner, task, deadline})
+    - pending_items (list)
+    - transcript
+  ═══════════════════════════════════════════════════════════════
+#}
+# 社内MTG議事録 — {{ topic }} / {{ date }}
+
+## 基本情報
+- **参加者**: {{ speakers | join(", ") }}
+- **MTG種別**: {{ type }}
+- **所要時間**: {{ duration }}
+
+## 要約
+{{ summary }}
+
+## アジェンダごとの議論
+{% for item in agenda %}
+### {{ loop.index }}. {{ item.title }}
+- **議論内容**: {{ item.discussion }}
+- **結論**: {{ item.conclusion }}
+{% endfor %}
+
+## 決定事項
+{% for d in decisions %}
+{{ loop.index }}. {{ d }}
+{% endfor %}
+
+## 論点（継続検討）
+{% for issue in open_issues %}
+- {{ issue }}
+{% endfor %}
+
+## ToDo
+| 担当 | タスク | 期限 |
+|---|---|---|
+{% for t in todos -%}
+| {{ t.owner }} | {{ t.task }} | {{ t.deadline }} |
+{% endfor %}
+
+## 保留事項
+{% for p in pending_items %}
+- {{ p }}
+{% endfor %}
+
+## 全文
+{{ transcript }}

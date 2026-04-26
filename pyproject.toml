@@ -1,0 +1,41 @@
+[project]
+name = "meeting-hub"
+version = "0.1.0"
+description = "統合文字起こし・議事録パイプライン（Whisper + pyannote + Claude）"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["transcription", "diarization", "meeting", "whisper", "pyannote", "claude"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-ra --tb=short"
+markers = [
+    "integration: 実モデルを必要とする統合テスト（CI では skip 推奨）",
+    "regression: ゴールデンサンプル回帰テスト",
+]

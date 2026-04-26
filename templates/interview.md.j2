@@ -1,0 +1,53 @@
+{#
+  ═══════════════════════════════════════════════════════════════
+  interview.md.j2 — 採用面談記録テンプレート
+  ═══════════════════════════════════════════════════════════════
+  利用する context 変数:
+    - candidate, position, date, duration
+    - interviewers (list)
+    - qa_pairs (list of {question, answer, observation})
+    - scores (dict: technical, culture_fit, communication, problem_solving, growth_motivation)
+    - candidate_questions (list of {question, answer})
+    - recommendation (強く推薦 / 推薦 / 保留 / 不採用)
+    - reasoning
+    - transcript
+  ═══════════════════════════════════════════════════════════════
+#}
+# 採用面談記録 — {{ candidate }} / {{ position }} / {{ date }}
+
+## 基本情報
+- **候補者**: {{ candidate }}
+- **ポジション**: {{ position }}
+- **面接官**: {{ interviewers | join(", ") }}
+- **所要時間**: {{ duration }}
+
+## 質問 / 回答
+{% for qa in qa_pairs %}
+### Q{{ loop.index }}: {{ qa.question }}
+**A**: {{ qa.answer }}
+
+**評価観点**: {{ qa.observation }}
+
+{% endfor %}
+
+## 評価観点マトリクス
+| 観点 | 評価（1-5） | 根拠 |
+|---|---|---|
+| 技術スキル | {{ scores.technical.value }} | {{ scores.technical.reasoning }} |
+| カルチャーフィット | {{ scores.culture_fit.value }} | {{ scores.culture_fit.reasoning }} |
+| コミュニケーション | {{ scores.communication.value }} | {{ scores.communication.reasoning }} |
+| 問題解決力 | {{ scores.problem_solving.value }} | {{ scores.problem_solving.reasoning }} |
+| 成長意欲 | {{ scores.growth_motivation.value }} | {{ scores.growth_motivation.reasoning }} |
+
+## 候補者からの質問
+{% for q in candidate_questions %}
+- **Q**: {{ q.question }}
+  **A**: {{ q.answer }}
+{% endfor %}
+
+## 推薦度
+- **総合判定**: {{ recommendation }}
+- **理由**: {{ reasoning }}
+
+## 全文（話者分離付き）
+{{ transcript }}

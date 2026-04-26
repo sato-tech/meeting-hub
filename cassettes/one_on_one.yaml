@@ -1,0 +1,107 @@
+# ═══════════════════════════════════════════════════════════════
+# one_on_one カセット — 1on1ミーティング
+# ═══════════════════════════════════════════════════════════════
+# 特徴:
+#   - 【重要】プライバシー重視: mode=local_llm + destinations は local のみ
+#   - 1on1 は心理的安全性が最重要。Notion/Slack 等への自動配信は禁止
+#   - Claude API（テキスト）は利用可（議事録抽出のため）
+#   - マイク+システム音声キャプチャ対応（Phase 2）、ファイル投入も可
+#   - 話者分離は 2 名固定で高精度化
+# ═══════════════════════════════════════════════════════════════
+
+name: one_on_one
+description: 1on1メモ向け。プライバシー最優先、ローカル保存のみ。
+mode: local_llm                  # 外部音声APIとクラウドGPUは禁止、Claude APIのみ許可
+
+input:
+  type: file                      # Phase 1 は file、Phase 2 で live_audio 対応
+  storage: local                  # Google Drive にも上げない
+  supported_formats: [mp4, m4a, wav, mp3]
+  # Phase 2 以降の live_audio 設定例（コメントで保持）:
+  # type: live_audio
+  # channels:
+  #   - source: microphone
+  #     label: self
+  #   - source: system_output
+  #     label: other
+  # mix: separate
+
+pipeline:
+  - step: preprocess
+    enabled: true
+    runtime: local
+    params:
+      noise_reduce_strength: 0.7
+      target_sr: 16000
+
+  - step: transcribe
+    provider: faster_whisper_batch
+    enabled: true
+    runtime: local                # Modal 使用禁止（mode=local_llm で自動的にブロック）
+    params:
+      model: large-v3
+      language: ja
+      beam_size: 5
+      vad_filter: true
+      condition_on_previous_text: false
+      # 短発話対応（P1）：1on1 は相槌が多いので必須
+      vad_min_silence_ms: 100
+      vad_speech_pad_ms: 100
+      min_text_length: 1
+
+  - step: diarize
+    provider: pyannote
+    enabled: true
+    runtime: local
+    params:
+      num_speakers: 2
+      speaker_names:
+        SPEAKER_00: マネージャ
+        SPEAKER_01: メンバー
+
+  - step: term_correct
+    enabled: true
+    runtime: local
+    params: {}
+
+  - step: llm_cleanup
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      preserve_original: true
+      remove_fillers: true
+
+  - step: minutes_extract
+    provider: claude
+    enabled: true
+    runtime: local
+    params:
+      template: templates/one_on_one.md.j2
+      prompt: prompts/minutes_extract_one_on_one.md
+
+  - step: format
+    enabled: true
+    runtime: local
+    params: {}
+
+llm:
+  provider: claude
+  model: claude-haiku-4-5
+  batch_mode: false               # 1on1 は即時性を重視
+  cache_strategy: system_prompt
+  max_tokens: 8192
+  send_raw: false
+
+terms:
+  stack:
+    - business
+    - it
+
+output:
+  formats: [md]
+  template: templates/one_on_one.md.j2
+  destinations:
+    # ⚠️ 意図的に local のみ。外部連携を追加しないこと。
+    - type: local
+      path: ./output/one_on_one/
