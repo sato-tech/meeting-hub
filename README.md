@@ -155,6 +155,7 @@ GOLDEN_SAMPLES_ROOT=/path/to/golden_samples pytest tests/regression -v
 - [docs/SETUP_STREAMLIT.md](./docs/SETUP_STREAMLIT.md) — Web UI 起動手順
 - [docs/SETUP_MODAL.md](./docs/SETUP_MODAL.md) — Modal Labs GPU 実行
 - [docs/SETUP_ZOOM_SDK.md](./docs/SETUP_ZOOM_SDK.md) — Zoom SDK（保留中）
+- [docs/FREE_HOSTING_OPTIONS.md](./docs/FREE_HOSTING_OPTIONS.md) — 無料 Web ホスティング比較（HF Spaces + Modal 推奨）
 
 ### 開発者・運用者向け
 - `docs/PHASE0_DESIGN.md` — 設計決定（プライバシー / モード / カセット）

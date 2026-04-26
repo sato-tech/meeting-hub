@@ -1,0 +1,25 @@
+# meeting-hub — ローカルで重い ML を走らせる場合に追加で必要な依存
+#
+# HF Spaces にデプロイする場合は、これらは Modal 側 (scripts/modal_deploy.py) で
+# pip_install されるため不要。ローカルで transcribe.runtime=local / diarize.runtime=local
+# として動かす場合のみインストールする。
+#
+# 使い方:
+#   pip install -r requirements.txt -r requirements-ml.txt
+
+# ─── 音声取り込み／前処理（rich provider） ───
+faster-whisper>=1.1.0
+whisperx>=3.1.0
+librosa>=0.10.0
+noisereduce>=3.0.0
+
+# ─── 話者分離（pyannote provider） ───
+pyannote.audio>=3.1.0
+
+# ─── PyTorch（CPU 既定、GPU は別手順） ───
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# ─── ライブ音声キャプチャ（Phase 2、ローカル録音） ───
+sounddevice>=0.4.6
+scipy>=1.11

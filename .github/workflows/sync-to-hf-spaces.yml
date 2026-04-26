@@ -1,0 +1,63 @@
+name: Sync to Hugging Face Spaces
+
+# main / feat/draft ブランチに push したとき、HF Spaces にミラーする。
+# README に HF Spaces 用 frontmatter を動的に注入してから push する
+# （GitHub 側の README はそのまま、HF Spaces 側のみフロントマター付きで配布）。
+#
+# 必要な repo secrets:
+#   HF_USERNAME    — Hugging Face のユーザー名（例: sato-tech）
+#   HF_TOKEN       — write 権限の HF アクセストークン
+#                    https://huggingface.co/settings/tokens で発行
+#   HF_SPACE_NAME  — Space リポ名（例: meeting-hub）
+
+on:
+  push:
+    branches: [main, feat/draft]
+  workflow_dispatch:        # 手動実行も可能（ブランチを選べる）
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Inject HF Spaces frontmatter into README
+        run: |
+          cat > README_HF.md <<'EOF'
+          ---
+          title: meeting-hub
+          emoji: 🎙️
+          colorFrom: indigo
+          colorTo: purple
+          sdk: streamlit
+          sdk_version: "1.35.0"
+          app_file: web/streamlit_app.py
+          pinned: false
+          license: mit
+          short_description: 文字起こし → 話者分離 → AI 議事録抽出（Whisper + pyannote + Claude）
+          ---
+
+          EOF
+          cat README.md >> README_HF.md
+          mv README_HF.md README.md
+
+      - name: Push to Hugging Face Spaces
+        env:
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          if [ -z "$HF_USERNAME" ] || [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_NAME" ]; then
+            echo "::error::Required secrets not set: HF_USERNAME / HF_TOKEN / HF_SPACE_NAME"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "ci: inject HF Spaces frontmatter" || echo "no changes"
+          git remote add hf "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME}"
+          # HF Spaces に強制 push（main ブランチを上書き）
+          git push --force hf HEAD:main
