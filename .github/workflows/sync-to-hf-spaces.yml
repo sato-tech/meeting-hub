@@ -86,19 +86,19 @@ jobs:
             exit 1
           fi
 
-          # 2) Space の存在確認（404 なら作成手順を案内）
+          # 2) Space の存在確認（warning のみ。Private Space は API が 404 を返すケースがあるため
+          #    最終判定は後続の git push に委ねる）
           SPACE_HTTP=$(curl -sS -o space.json -w '%{http_code}' \
             -H "Authorization: Bearer ${HF_TOKEN}" \
             "https://huggingface.co/api/spaces/${SPACE_OWNER}/${HF_SPACE_NAME}" || echo 000)
-          if [ "${SPACE_HTTP}" = "404" ]; then
-            echo "::error::HF Space does not exist: ${SPACE_OWNER}/${HF_SPACE_NAME}"
-            echo "::error::Create it first at https://huggingface.co/new-space (SDK=streamlit)."
-            exit 1
-          fi
-          if [ "${SPACE_HTTP}" != "200" ]; then
-            echo "::error::HF Space lookup failed (HTTP ${SPACE_HTTP})."
+          if [ "${SPACE_HTTP}" = "200" ]; then
+            echo "==> Space lookup OK (HTTP 200)"
+          elif [ "${SPACE_HTTP}" = "404" ]; then
+            echo "::warning::Space lookup returned 404 — proceeding (Private Space で発生しうる正常系)."
+            echo "::warning::もし未作成なら https://huggingface.co/new-space で作成してください。"
+          else
+            echo "::warning::Space lookup unexpected status (HTTP ${SPACE_HTTP}). git push で実認証します。"
             cat space.json || true
-            exit 1
           fi
 
           # 3) git push 実行（verbose で実エラーを表示）

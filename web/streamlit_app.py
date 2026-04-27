@@ -58,6 +58,83 @@ def _list_cassette_names() -> list[str]:
 
 
 # ═══════════════════════════════════════════
+# 日本語ラベル
+# ═══════════════════════════════════════════
+_STEP_LABELS_JA: dict[str, tuple[str, str]] = {
+    "preprocess":      ("前処理",        "ノイズ除去・サンプリング調整"),
+    "transcribe":      ("文字起こし",     "Whisper などで音声 → テキスト"),
+    "diarize":         ("話者分離",      "発話者ごとにセグメント分割"),
+    "term_correct":    ("用語補正",      "業界用語・固有名詞の表記統一"),
+    "llm_cleanup":     ("整形（LLM）",   "フィラー除去・文の整形"),
+    "minutes_extract": ("議事録抽出",     "Claude で要約・決定事項・ToDo を抽出"),
+    "format":          ("出力整形",      "Markdown / JSON へ整形"),
+}
+
+_DESTINATION_LABELS_JA: dict[str, str] = {
+    "local":        "ローカル保存",
+    "google_drive": "Google Drive",
+    "notion":       "Notion DB",
+    "slack":        "Slack",
+    "email":        "メール送信",
+}
+
+_MODE_LABELS_JA: dict[str, str] = {
+    "cloud_batch": "クラウドバッチ（Modal GPU + Claude API 利用可）",
+    "local":       "ローカル完結（外部送信なし）",
+    "local_llm":   "ローカル + Claude API のみ（外部音声API禁止）",
+    "live":        "ライブ（リアルタイム）",
+}
+
+
+@st.cache_data
+def _cassette_meta(name: str) -> dict | None:
+    """カセット表示用メタ情報。失敗時は None。"""
+    try:
+        c = load_cassette(name)
+        return {
+            "name": c.name,
+            "description": c.description or "",
+            "mode": str(c.mode),
+        }
+    except Exception:
+        return None
+
+
+def _format_cassette_option(name: str) -> str:
+    """selectbox 用のラベル: 「説明文〔internal_meeting〕」形式。"""
+    meta = _cassette_meta(name)
+    if meta and meta["description"]:
+        return f"{meta['description']}  〔{name}〕"
+    return name
+
+
+def _render_cassette_detail(cassette) -> None:
+    """カセット詳細パネル（日本語ラベル付き）。"""
+    if cassette.description:
+        st.markdown(f"### {cassette.description}")
+    st.caption(f"カセットID: `{cassette.name}`")
+
+    mode_label = _MODE_LABELS_JA.get(str(cassette.mode), str(cassette.mode))
+    st.write(f"**実行モード**: {mode_label}")
+    st.write(f"**入力種別**: `{cassette.input.type}`"
+             + (f" / mix=`{cassette.input.mix}`" if getattr(cassette.input, "mix", None) else ""))
+
+    with st.expander("処理パイプライン", expanded=True):
+        for s in cassette.pipeline:
+            mark = "✓" if s.enabled else "×"
+            label_ja, hint_ja = _STEP_LABELS_JA.get(s.step, (s.step, ""))
+            provider = s.provider or "default"
+            line = f"{mark} **{label_ja}**  — {hint_ja}" if hint_ja else f"{mark} **{label_ja}**"
+            st.markdown(line)
+            st.caption(f"step=`{s.step}` / provider=`{provider}` / runtime=`{getattr(s, 'runtime', '-')}`")
+
+    with st.expander("出力先（Destinations）", expanded=False):
+        for d in cassette.output.destinations:
+            label_ja = _DESTINATION_LABELS_JA.get(d.type, d.type)
+            st.write(f"→ **{label_ja}** (`{d.type}`)")
+
+
+# ═══════════════════════════════════════════
 # 認証
 # ═══════════════════════════════════════════
 def login_view() -> None:
@@ -102,7 +179,13 @@ def page_run() -> None:
 
     with col_left:
         cassette_names = _list_cassette_names()
-        cassette_name = st.selectbox("カセット", cassette_names, index=0 if cassette_names else None)
+        cassette_name = st.selectbox(
+            "カセット（用途別プリセット）",
+            cassette_names,
+            index=0 if cassette_names else None,
+            format_func=_format_cassette_option,
+            help="用途ごとに最適化された処理パイプラインのプリセットです。",
+        )
 
         input_mode = st.radio("入力モード", ["file upload", "live audio"], horizontal=True)
 
@@ -127,16 +210,7 @@ def page_run() -> None:
         if cassette_name:
             try:
                 cassette = load_cassette(cassette_name)
-                st.subheader("カセット概要")
-                st.write(f"**name**: `{cassette.name}`")
-                st.write(f"**mode**: `{cassette.mode}` / **input.type**: `{cassette.input.type}`")
-                with st.expander("Pipeline", expanded=True):
-                    for s in cassette.pipeline:
-                        mark = "✓" if s.enabled else "×"
-                        st.write(f"{mark} **{s.step}** (provider=`{s.provider or 'default'}`)")
-                with st.expander("Destinations"):
-                    for d in cassette.output.destinations:
-                        st.write(f"→ {d.type}")
+                _render_cassette_detail(cassette)
             except Exception as e:
                 st.error(f"カセットロード失敗: {e}")
 
@@ -276,7 +350,12 @@ def page_live() -> None:
 
     col1, col2 = st.columns([2, 3])
     with col1:
-        cassette_name = st.selectbox("ライブカセット", cassette_names, key="live_cassette")
+        cassette_name = st.selectbox(
+            "ライブカセット",
+            cassette_names,
+            key="live_cassette",
+            format_func=_format_cassette_option,
+        )
         duration = st.number_input("録音時間 (秒)", min_value=10, max_value=3600, value=60, step=10)
         chunk_sec = st.slider("chunk_sec", 10.0, 30.0, 20.0, step=2.0)
         overlap_sec = st.slider("overlap_sec", 0.0, 5.0, 2.0, step=0.5)
@@ -286,12 +365,7 @@ def page_live() -> None:
         if cassette_name:
             try:
                 cassette = load_cassette(cassette_name)
-                st.write(f"**mode**: `{cassette.mode}`")
-                st.write(f"**input**: `{cassette.input.type}` / mix=`{cassette.input.mix or '-'}`")
-                with st.expander("Pipeline"):
-                    for s in cassette.pipeline:
-                        mark = "✓" if s.enabled else "×"
-                        st.write(f"{mark} **{s.step}** (provider=`{s.provider}`, runtime=`{s.runtime}`)")
+                _render_cassette_detail(cassette)
             except Exception as e:
                 st.error(f"カセットロード失敗: {e}")
 
@@ -367,9 +441,19 @@ def page_cassettes() -> None:
         st.warning("管理者権限が必要です")
         return
     st.header("🗂️ カセット")
+    st.caption("用途ごとに最適化された処理パイプラインのプリセット一覧です。")
     for name in _list_cassette_names():
         path = resolve_cassette_path(name)
-        with st.expander(name):
+        meta = _cassette_meta(name)
+        label = f"{meta['description']}  〔{name}〕" if meta and meta["description"] else name
+        with st.expander(label):
+            try:
+                cassette = load_cassette(name)
+                _render_cassette_detail(cassette)
+                st.divider()
+                st.caption("YAML 定義（生データ）")
+            except Exception as e:
+                st.error(f"カセットロード失敗: {e}")
             st.code(path.read_text(encoding="utf-8"), language="yaml")
 
 
